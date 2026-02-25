@@ -1,0 +1,7 @@
+assets
+.env
+venv
+output
+notebook
+tmp
+**/__pycache__
