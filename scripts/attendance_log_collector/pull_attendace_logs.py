@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from zk import ZK
 from zk.exception import ZKNetworkError
+import time
 
 from scripts.utils.logger import get_logger
 from scripts.utils.discord_error_alert import send_discord_alert
@@ -13,9 +14,10 @@ log = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Device
 # ---------------------------------------------------------------------------
-def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, last_pulled_timestamp):
+def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, last_pulled_timestamp, max_retries=3, retry_delay=2):
     """
     Pull attendance logs from the biometric device.
+    Retries connection up to max_retries times.
     """
     zk  = ZK(device_ip, port=device_port, timeout=timeout,
               password=comm_key, force_udp=force_udp, ommit_ping=False)
@@ -23,14 +25,29 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
 
     try:
         log.info("Connecting to %s:%d …", device_ip, device_port)
-        try:
-            dev = zk.connect()
-        except ZKNetworkError as e:
-            log.error("Network error connecting to device: %s", e)
-            return None, None
-        except Exception as e:
-            log.error("Failed to connect to device: %s", e)
-            return None, None
+        for attempt in range(1, max_retries + 1):
+            try:
+                dev = zk.connect()
+                break
+            except ZKNetworkError as e:
+                log.warning("Network error connecting to device (attempt %d/%d): %s", attempt, max_retries, e)
+                if attempt == max_retries:
+                    log.error("Max retries reached. Giving up.")
+                    send_discord_alert(
+                        webhook_url=config.DISCORD_WEBHOOK_URL,
+                        error_message=f"Failed to connect to device at {device_ip} after {max_retries} attempts: {e}",
+                        exc=e
+                    )
+                    return None, None
+                time.sleep(retry_delay)
+            except Exception as e:
+                log.error("Failed to connect to device: %s", e)
+                send_discord_alert(
+                    webhook_url=config.DISCORD_WEBHOOK_URL,
+                    error_message=f"Failed to connect to device at {device_ip}: {e}",
+                    exc=e
+                )
+                return None, None
 
         firmware = dev.get_firmware_version()
         serial   = dev.get_serialnumber()

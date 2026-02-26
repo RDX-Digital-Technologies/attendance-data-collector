@@ -190,7 +190,7 @@ if __name__ == "__main__":
     curr = time.time()
     result = collect_attendance_data()
     if not result:
-        log.error("Attendance data collection failed.")
+        log.error("Attendance data collection have no data or it is failed. Check previous logs for details.")
     else:
         log.info(
             "Attendance data collection completed in %.2f seconds",
