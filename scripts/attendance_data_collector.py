@@ -156,7 +156,8 @@ def collect_attendance_data():
                                f"Error processing device {device_ip}", e)
             continue 
 
-    log.info("=== Collection Complete. Devices processed: %d ===", len(all_results))
+    log.info("=== Collection Complete. Devices processed: %d ===", len(existing_devices))
+    log.info("=== Total data collected and inserted: %d ===", len(all_results))
     return all_results
 
 # ---------------------------------------------------------------------------
