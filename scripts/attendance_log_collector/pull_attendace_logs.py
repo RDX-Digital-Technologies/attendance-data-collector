@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo  # Add this import at the top
 from zk import ZK
 from zk.exception import ZKNetworkError
 import time
@@ -81,7 +82,7 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
         log.info("Device re-enabled. Fetched %d raw records.", len(attendance))
 
         # Format attendance records
-        pulled_at = datetime.now(timezone.utc).isoformat()
+        pulled_at = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Kolkata")).isoformat()
         formatted_records = []
         
         # Parse last_pulled_timestamp to datetime (if provided)
