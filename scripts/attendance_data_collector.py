@@ -9,19 +9,20 @@ from scripts.db_layer.insert_data import (
     insert_device_info_records,
     insert_employee_data_records
 )
-from scripts.utils.logger import get_logger
+from scripts.utils.logger import get_logger, configure_logging
 from scripts.utils.config import Config
 from scripts.utils.discord_error_alert import send_discord_alert
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-log = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 config = Config()
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+configure_logging(config.LOG_PATH)
+log = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # Helper Functions
