@@ -33,11 +33,11 @@ def get_punch_status_records():
         )
         return None
 
-def get_last_fetched_timestamp():
+def get_last_fetched_timestamp(device_key:str):
     try:
         conn = db_obj.get_connect().connect()
         with conn:
-            result = conn.execute(text("SELECT MAX(event_timestamp) FROM attendance_logs"))
+            result = conn.execute(text("SELECT MAX(event_timestamp) FROM attendance_logs WHERE device_key = :device_key"), {"device_key": device_key})
             return result.scalar()
         
     except ConnectionError as ce:

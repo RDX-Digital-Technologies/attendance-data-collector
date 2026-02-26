@@ -108,7 +108,7 @@ def collect_attendance_data():
         device_key = device_cfg[0]
         log.info("--- Processing device: %s ---", device_ip)
         try:
-            last_event_timestamp = get_last_fetched_timestamp()
+            last_event_timestamp = get_last_fetched_timestamp(device_key)
             records, device_info = pull_attendance_logs(
                 device_ip,
                 config.DEVICE_PORT,
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     curr = time.time()
     result = collect_attendance_data()
     if not result:
-        log.error("Attendance data collection have no data or it is failed. Check previous logs for details.")
+        log.warning("Attendance data collection have no data or it is failed. Check previous logs for details.")
     else:
         log.info(
             "Attendance data collection completed in %.2f seconds",
