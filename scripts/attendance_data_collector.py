@@ -26,34 +26,6 @@ config = Config()
 # ---------------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------------
-def check_and_insert_device(device_info):
-    """
-    Check if device exists in database; insert if not.
-    Returns device_key on success, None on error.
-    """
-    existing_devices = get_device_info()
-
-    if existing_devices is None:
-        log.error("Failed to fetch existing device info")
-        return None
-
-    # Assume device_key is at index 0, device_ip at index 2
-    for device in existing_devices:
-        if device[3] == device_info["device_ip"]:
-            log.info("Device %s already exists in database.", device_info["device_id"])
-            return device[0]  # Return device_key
-
-    log.info("New device found: %s. Inserting into database.", device_info["device_id"])
-    insert_device_info_records(device_info)
-
-    # Fetch again to get the new device's key
-    updated_devices = get_device_info()
-    for device in updated_devices:
-        if device[2] == device_info["device_ip"]:
-            return device[0]
-
-    log.error("Failed to retrieve device key after insert.")
-    return None
 
 def check_and_insert_employees(records):
     """
@@ -122,64 +94,70 @@ def collect_attendance_data():
     """
     Main function to collect attendance data from device and store in database.
     """
-    try:
-        log.info("=== Attendance Data Collection Started ===")
+    log.info("=== Attendance Data Collection Started ===")
+    all_results = {}
 
-        # Step 1: Pull attendance logs from device
-        last_event_timestamp = get_last_fetched_timestamp()
-        log.info("Step 1: Pulling attendance logs from device...")
-        records, device_info = pull_attendance_logs(
-            config.DEVICE_IP, config.DEVICE_PORT,
-            config.TIMEOUT, config.COMM_KEY, config.FORCE_UDP, last_event_timestamp
-        )
-        if records is None and device_info is None:
-            log.error("Failed to pull attendance logs from device. Possible network issue.")
-            return {}
+    existing_devices = get_device_info()
+    if existing_devices is None:
+        log.error("Failed to fetch existing device records")
+        send_discord_alert(config.DISCORD_WEBHOOK_URL, "Failed to fetch existing device records. Attendance data collection aborted.")
+        return {}
+    
+    for device_cfg in existing_devices:
+        device_ip = device_cfg[3]
+        device_key = device_cfg[0]
+        log.info("--- Processing device: %s ---", device_ip)
+        try:
+            last_event_timestamp = get_last_fetched_timestamp()
+            records, device_info = pull_attendance_logs(
+                device_ip,
+                config.DEVICE_PORT,
+                config.TIMEOUT,
+                config.COMM_KEY,
+                config.FORCE_UDP,
+                last_event_timestamp
+            )
 
-        if not records:
-            log.warning("No records found. Exiting.")
-            return {}
+            if records is None and device_info is None:
+                log.error("Failed to pull logs from %s. Skipping.", device_ip)
+                send_discord_alert(config.DISCORD_WEBHOOK_URL, f"Failed to pull logs from device {device_ip}. Check logs for details.")
+                continue 
 
-        log.info("Pulled %d records from device.", len(records))
+            if not records:
+                log.warning("No new records from %s.", device_ip)
+                continue
 
-        # Step 2: Check and insert device info
-        log.info("Step 2: Checking device information...")
-        device_key = check_and_insert_device(device_info)
-        if device_key is None:
-            log.error("Device information check/insert failed. Cannot proceed.")
-            return {}
-        
-        for i in records:
-            i["device_key"] = device_key
+            if device_key is None:
+                log.error("Device key is none for %s. Skipping.", device_ip)
+                send_discord_alert(config.DISCORD_WEBHOOK_URL, f"Device key is none for {device_ip}. Check logs for details.")
+                continue
 
-        # Step 3: Check and batch-insert new employees
-        log.info("Step 3: Checking for new employees...")
-        if check_and_insert_employees(records) is None:
-            log.error("Employee check/insert failed. Cannot proceed.")
-            return {}
+            for r in records:
+                r["device_key"] = device_key
 
-        # Step 4: Batch-insert attendance records
-        log.info("Step 4: Inserting attendance records...")
-        inserted, failed = insert_attendance_records(records)
+            if check_and_insert_employees(records) is None:
+                log.error("Employee insert failed for %s. Skipping.", device_ip)
+                send_discord_alert(config.DISCORD_WEBHOOK_URL, f"Employee insert failed for {device_ip}. Check logs for details.")
+                continue
 
-        log.info("=== Attendance Data Collection Completed ===")
-        log.info(
-            "Summary: %d records processed, %d inserted, %d failed",
-            len(records), inserted, failed
-        )
+            inserted, failed = insert_attendance_records(records)
+            log.info("Device %s — %d inserted, %d failed", device_ip, inserted, failed)
 
-        return {
-            "total_records": len(records),
-            "inserted": inserted,
-            "failed": failed,
-            "device_info": device_info
-        }
+            all_results[device_ip] = {
+                "total_records": len(records),
+                "inserted": inserted,
+                "failed": failed,
+                "device_info": device_info
+            }
 
-    except Exception as e:
-        log.exception("Error during attendance data collection: %s", e)
-        send_discord_alert(config.DISCORD_WEBHOOK_URL, "Error during attendance data collection", e)
-        raise
+        except Exception as e:
+            log.exception("Error processing device %s: %s", device_ip, e)
+            send_discord_alert(config.DISCORD_WEBHOOK_URL,
+                               f"Error processing device {device_ip}", e)
+            continue 
 
+    log.info("=== Collection Complete. Devices processed: %d ===", len(all_results))
+    return all_results
 
 # ---------------------------------------------------------------------------
 # Main

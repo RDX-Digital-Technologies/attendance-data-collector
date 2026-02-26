@@ -5,6 +5,12 @@ import time
 
 from scripts.utils.logger import get_logger
 from scripts.utils.discord_error_alert import send_discord_alert
+from scripts.utils.config import Config
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+config = Config()
 
 # ---------------------------------------------------------------------------
 # Logging
