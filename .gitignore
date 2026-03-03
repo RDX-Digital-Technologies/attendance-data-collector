@@ -6,3 +6,4 @@ notebook
 tmp
 **/__pycache__
 api.py
+scripts/cron/node_modules
