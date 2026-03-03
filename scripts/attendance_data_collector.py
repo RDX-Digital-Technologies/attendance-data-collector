@@ -30,7 +30,8 @@ log = get_logger(__name__)
 
 def check_and_insert_employees(records):
     """
-    Detect new employees from records and batch-insert them all at once.
+    Detect new employees and batch-insert them.
+    Also detect existing employees with mismatched names and update them.
     Returns True on success, None on error.
     """
     existing_employees = get_existing_employee_records()
@@ -39,37 +40,67 @@ def check_and_insert_employees(records):
         log.error("Failed to fetch existing employee records")
         return None
 
-    existing_employee_ids = {str(emp[0]) for emp in existing_employees}
+    # Create a dict of existing employees: {employee_id: employee_name}
+    existing_employee_map = {str(emp[0]): emp[1].strip().lower() for emp in existing_employees}
 
-    # Collect unique new employees in a single pass
+    # Collect unique new employees and employees with name mismatches
     new_employees = {}
+    employees_to_update = {}
+    
     for record in records:
         employee_id = str(record["employee_id"])
-        if employee_id not in existing_employee_ids and employee_id not in new_employees:
-            new_employees[employee_id] = record.get("employee_name") or f"Employee_{employee_id}"
+        employee_name = record.get("employee_name")
+        if employee_name is None or employee_name.strip() == "":
+            log.error("Record with employee_id %s has no employee_name. Skipping name checks for this record.", employee_id)
+            return None
+        
+        normalized_name = employee_name.strip().lower()
+        
+        if employee_id not in existing_employee_map and employee_id not in new_employees:
+            # New employee
+            new_employees[employee_id] = employee_name
+        elif employee_id in existing_employee_map:
+            # Check if name mismatch
+            existing_name = existing_employee_map[employee_id]
+            if existing_name != normalized_name and employee_id not in employees_to_update:
+                employees_to_update[employee_id] = employee_name
+                log.info("Name mismatch detected for Employee %s: '%s' -> '%s'", 
+                         employee_id, existing_name, employee_name)
 
-    if not new_employees:
-        log.info("No new employees found.")
-        return True
+    # Insert new employees
+    if new_employees:
+        employee_records = [
+            {"employee_id": emp_id, "employee_name": emp_name}
+            for emp_id, emp_name in new_employees.items()
+        ]
+        log.info("Inserting %d new employee(s) in batch...", len(employee_records))
+        for r in employee_records:
+            log.info("  -> Employee %s - %s", r["employee_id"], r["employee_name"])
+        
+        result = insert_employee_data_records(employee_records)
+        if result is None:
+            log.error("Batch employee insert failed.")
+            return None
+        log.info("Batch employee insert completed.")
 
-    # Build list of dicts for batch insert
-    employee_records = [
-        {"employee_id": emp_id, "employee_name": emp_name}
-        for emp_id, emp_name in new_employees.items()
-    ]
+    # Update employees with mismatched names
+    if employees_to_update:
+        update_records = [
+            {"employee_id": emp_id, "employee_name": emp_name}
+            for emp_id, emp_name in employees_to_update.items()
+        ]
+        log.warning("found %d employees with name mismatch...", len(update_records))
+        for r in update_records:
+            log.warning("  -> Employee %s - %s", r["employee_id"], r["employee_name"])
 
-    log.info("Inserting %d new employee(s) in batch...", len(employee_records))
-    for r in employee_records:
-        log.info("  -> Employee %s - %s", r["employee_id"], r["employee_name"])
-
-    result = insert_employee_data_records(employee_records)   # single batch call
-    if result is None:
-        log.error("Batch employee insert failed.")
+        log.critical("Employee name mismatches detected. Please review the above log entries and update employee names in the database accordingly to ensure data consistency.")
+        send_discord_alert(config.DISCORD_WEBHOOK_URL, "Employee name mismatches detected. Please review the above log entries and update employee names in the database accordingly to ensure data consistency.")
         return None
 
-    log.info("Batch employee insert completed.")
-    return True
+    if not new_employees and not employees_to_update:
+        log.info("No new employees")
 
+    return True
 
 def insert_attendance_records(records, batch_size=1000):
     if not records:
