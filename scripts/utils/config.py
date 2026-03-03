@@ -8,8 +8,6 @@ class Config:
     def __init__(self):
 
         #------ Device Config -------
-        self.DEVICE_IP = os.getenv("DEVICE_IP", None)
-        
         self.DEVICE_PORT = os.getenv("DEVICE_PORT", None)
         if self.DEVICE_PORT is not None:
             self.DEVICE_PORT = int(self.DEVICE_PORT)
