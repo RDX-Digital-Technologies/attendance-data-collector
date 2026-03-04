@@ -150,6 +150,7 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     log.info("=== pull_x2008 run start ===")
-    records, device_info, user_map = pull_attendance_logs()
+    records, device_info= pull_attendance_logs("192.168.1.176",4370,10,0,False,None)
+    print(records,device_info)
     log.info("Pulled %d records from device %s", len(records), device_info["device_id"])
     log.info("=== pull_x2008 run end ===")

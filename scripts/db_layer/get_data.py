@@ -63,7 +63,7 @@ def get_device_info():
         conn = db_obj.get_connect().connect()
         with conn:
             result = conn.execute(
-                text("SELECT * FROM device_info")
+                text("SELECT device_key, device_id, device_name, device_ip FROM device_info")
             )
             return result.fetchall()
     except ConnectionError as ce:

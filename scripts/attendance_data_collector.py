@@ -54,14 +54,14 @@ def check_and_insert_employees(records):
             log.error("Record with employee_id %s has no employee_name. Skipping name checks for this record.", employee_id)
             return None
         
-        normalized_name = employee_name.strip().lower()
+        normalized_name = employee_name.strip().lower().replace(' ','')
         
         if employee_id not in existing_employee_map and employee_id not in new_employees:
             # New employee
             new_employees[employee_id] = employee_name
         elif employee_id in existing_employee_map:
             # Check if name mismatch
-            existing_name = existing_employee_map[employee_id]
+            existing_name = existing_employee_map[employee_id].lower().strip().replace(' ','')
             if existing_name != normalized_name and employee_id not in employees_to_update:
                 employees_to_update[employee_id] = employee_name
                 log.info("Name mismatch detected for Employee %s: '%s' -> '%s'", 
