@@ -4,10 +4,10 @@ const { spawn } = require("child_process");
 // ==== EDIT THIS ====
 
 // Path to your virtual environment python.exe
-const pythonPath = "C:\\Users\\Administrator\\Desktop\\attendace_data_collector\\attendance-data-collector\\venv\\Scripts\\python.exe";
+const pythonPath = "C:\\Users\\design1\\Documents\\attendance-data-collector\\venv\\Scripts\\python.exe";
 
 // Working directory of your project (IMPORTANT for -m to work)
-const workingDirectory = "C:\\Users\\Administrator\\Desktop\\attendace_data_collector\\attendance-data-collector";
+const workingDirectory = "C:\\Users\\design1\\Documents\\attendance-data-collector";
 
 // Module name you run with -m
 const moduleName = "scripts.attendance_data_collector";

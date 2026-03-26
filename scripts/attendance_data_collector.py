@@ -6,7 +6,6 @@ from scripts.db_layer.get_data import (
 )
 from scripts.db_layer.insert_data import (
     insert_attendance_log_records,
-    insert_device_info_records,
     insert_employee_data_records
 )
 from scripts.utils.logger import get_logger, configure_logging
@@ -135,7 +134,17 @@ def collect_attendance_data():
         send_discord_alert(config.DISCORD_WEBHOOK_URL, "Failed to fetch existing device records. Attendance data collection aborted.")
         return {}
     
-    for device_cfg in existing_devices:
+    allowed_devices = [i for i in existing_devices if config.APPROVED_DEVICE.strip().lower().replace(' ','') in i[4].strip().lower().replace(' ','')]
+    print(allowed_devices)
+    if not allowed_devices:
+        log.error("No allowed devices found. Check approved_device_alias in config and device_name_alias in database.")
+        send_discord_alert(config.DISCORD_WEBHOOK_URL, "No allowed devices found. Check approved_device_alias in config and device_name_alias in database. Attendance data collection aborted.")
+        return {}
+    else:
+        log.info("Allowed devices found: %d", len(allowed_devices))
+        log.debug("Allowed devices: %s", [d[3] for d in allowed_devices])
+    
+    for device_cfg in allowed_devices:
         device_ip = device_cfg[3]
         device_key = device_cfg[0]
         log.info("--- Processing device: %s ---", device_ip)
@@ -188,7 +197,7 @@ def collect_attendance_data():
                                f"Error processing device {device_ip}", e)
             continue 
 
-    log.info("=== Collection Complete. Devices processed: %d ===", len(existing_devices))
+    log.info("=== Collection Complete. Devices processed: %d ===", len(allowed_devices))
     log.info("=== Total data collected and inserted: %d ===", len(all_results))
     return all_results
 

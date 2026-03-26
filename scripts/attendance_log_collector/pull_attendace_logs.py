@@ -111,19 +111,21 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
                     exc=None
                 )
                 log.error("last_pulled_timestamp is not a recognized type: %s", type(last_pulled_timestamp))
-
+        
+        start_time_stamp = datetime.strptime(config.ATTENDANCE_COLLECTION_START_DATE, "%Y-%m-%d %H:%M:%S.%f")
         for rec in attendance:
             event_ts = rec.timestamp
             # Only include records after last_pulled_timestamp
             if last_dt is None or (event_ts and event_ts > last_dt):
-                formatted_records.append({
-                    "employee_id": str(rec.user_id),
-                    "employee_name": user_map.get(str(rec.user_id)),
-                    "event_timestamp": event_ts.isoformat() if event_ts else None,
-                    "punch_status_id": getattr(rec, "punch", None),
-                    "punch_method_id": getattr(rec, "status", None),
-                    "pulled_timestamp": pulled_at
-                })
+                if event_ts >= start_time_stamp:
+                    formatted_records.append({
+                        "employee_id": str(rec.user_id),
+                        "employee_name": user_map.get(str(rec.user_id)),
+                        "event_timestamp": event_ts.isoformat() if event_ts else None,
+                        "punch_status_id": getattr(rec, "punch", None),
+                        "punch_method_id": getattr(rec, "status", None),
+                        "pulled_timestamp": pulled_at
+                    })
 
         return formatted_records, device_info
 
@@ -150,7 +152,7 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     log.info("=== pull_x2008 run start ===")
-    records, device_info= pull_attendance_logs("192.168.1.176",4370,10,0,False,None)
+    records, device_info= pull_attendance_logs("192.168.0.211",4370,10,0,False,None)
     print(records,device_info)
     log.info("Pulled %d records from device %s", len(records), device_info["device_id"])
     log.info("=== pull_x2008 run end ===")

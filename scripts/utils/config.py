@@ -53,3 +53,9 @@ class Config:
         self.DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", None)
         if self.DISCORD_WEBHOOK_URL is None:
             raise ValueError("DISCORD_WEBHOOK_URL must be set in .env file")
+        
+        #------ approved device_alias --------
+        self.APPROVED_DEVICE = os.getenv("approved_device_alias", None)
+
+        #------ attendance collection start date ----
+        self.ATTENDANCE_COLLECTION_START_DATE = os.getenv("start_date", None)
