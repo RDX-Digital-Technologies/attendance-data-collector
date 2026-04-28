@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+from datetime import datetime
 import os
 from scripts.utils.discord_error_alert import send_discord_alert
 
@@ -53,3 +54,22 @@ class Config:
         self.DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", None)
         if self.DISCORD_WEBHOOK_URL is None:
             raise ValueError("DISCORD_WEBHOOK_URL must be set in .env file")
+
+        #------ Attendance Collection Start Date -------
+        start_date_raw = os.getenv("start_date", None)
+        if start_date_raw is None:
+            send_discord_alert(self.DISCORD_WEBHOOK_URL, "start_date must be set in .env file")
+            raise ValueError("start_date must be set in .env file")
+        try:
+            self.START_DATE = datetime.strptime(start_date_raw, "%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            try:
+                self.START_DATE = datetime.strptime(start_date_raw, "%Y-%m-%d %H:%M:%S")
+            except ValueError as e:
+                send_discord_alert(
+                    self.DISCORD_WEBHOOK_URL,
+                    f"Invalid start_date format in .env: {start_date_raw}. Expected 'YYYY-MM-DD HH:MM:SS[.ffffff]'."
+                )
+                raise ValueError(
+                    f"Invalid start_date format in .env: {start_date_raw}. Expected 'YYYY-MM-DD HH:MM:SS[.ffffff]'."
+                ) from e

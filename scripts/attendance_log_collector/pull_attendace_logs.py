@@ -73,6 +73,8 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
         users    = dev.get_users()
         user_map = {str(u.user_id): getattr(u, "name", None) for u in users}
         log.info("Fetched %d users.", len(users))
+        
+        print("users",users)
 
         # Disable device briefly for a consistent snapshot
         dev.disable_device()
@@ -114,8 +116,8 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
 
         for rec in attendance:
             event_ts = rec.timestamp
-            # Only include records after last_pulled_timestamp
-            if last_dt is None or (event_ts and event_ts > last_dt):
+            # Only include records on or after the configured floor (start_date / last_pulled_timestamp)
+            if last_dt is None or (event_ts and event_ts >= last_dt):
                 formatted_records.append({
                     "employee_id": str(rec.user_id),
                     "employee_name": user_map.get(str(rec.user_id)),
@@ -150,7 +152,10 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     log.info("=== pull_x2008 run start ===")
-    records, device_info= pull_attendance_logs("192.168.1.176",4370,10,0,False,None)
+    records, device_info= pull_attendance_logs("192.168.0.201",4370,10,0,False,None)
+    with open("latest_pull.json", "w") as f:
+        import json
+        json.dump({"records": records, "device_info": device_info}, f, indent=2)
     print(records,device_info)
     log.info("Pulled %d records from device %s", len(records), device_info["device_id"])
     log.info("=== pull_x2008 run end ===")

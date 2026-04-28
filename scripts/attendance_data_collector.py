@@ -52,7 +52,7 @@ def check_and_insert_employees(records):
         employee_name = record.get("employee_name")
         if employee_name is None or employee_name.strip() == "":
             log.error("Record with employee_id %s has no employee_name. Skipping name checks for this record.", employee_id)
-            return None
+            continue
         
         normalized_name = employee_name.strip().lower().replace(' ','')
         
@@ -141,13 +141,17 @@ def collect_attendance_data():
         log.info("--- Processing device: %s ---", device_ip)
         try:
             last_event_timestamp = get_last_fetched_timestamp(device_key)
+            if last_event_timestamp is None:
+                effective_floor = config.START_DATE
+            else:
+                effective_floor = max(last_event_timestamp, config.START_DATE)
             records, device_info = pull_attendance_logs(
                 device_ip,
                 config.DEVICE_PORT,
                 config.TIMEOUT,
                 config.COMM_KEY,
                 config.FORCE_UDP,
-                last_event_timestamp
+                effective_floor
             )
 
             if records is None and device_info is None:
@@ -162,6 +166,22 @@ def collect_attendance_data():
             if device_key is None:
                 log.error("Device key is none for %s. Skipping.", device_ip)
                 send_discord_alert(config.DISCORD_WEBHOOK_URL, f"Device key is none for {device_ip}. Check logs for details.")
+                continue
+
+            original_count = len(records)
+            records = [
+                r for r in records
+                if r.get("employee_name") and r["employee_name"].strip()
+            ]
+            dropped = original_count - len(records)
+            if dropped:
+                log.warning(
+                    "Dropped %d record(s) from %s with unknown employee (not in device user list).",
+                    dropped, device_ip
+                )
+
+            if not records:
+                log.warning("No usable records from %s after dropping unknown employees.", device_ip)
                 continue
 
             for r in records:
