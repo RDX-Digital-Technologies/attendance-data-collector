@@ -73,3 +73,9 @@ class Config:
                 raise ValueError(
                     f"Invalid start_date format in .env: {start_date_raw}. Expected 'YYYY-MM-DD HH:MM:SS[.ffffff]'."
                 ) from e
+        
+        #------ approved device_alias --------
+        self.APPROVED_DEVICE = os.getenv("approved_device_alias", None)
+
+        #------ attendance collection start date ----
+        self.ATTENDANCE_COLLECTION_START_DATE = os.getenv("start_date", None)

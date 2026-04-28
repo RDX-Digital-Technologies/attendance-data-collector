@@ -113,7 +113,8 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
                     exc=None
                 )
                 log.error("last_pulled_timestamp is not a recognized type: %s", type(last_pulled_timestamp))
-
+        
+        start_time_stamp = datetime.strptime(config.ATTENDANCE_COLLECTION_START_DATE, "%Y-%m-%d %H:%M:%S.%f")
         for rec in attendance:
             event_ts = rec.timestamp
             # Only include records on or after the configured floor (start_date / last_pulled_timestamp)

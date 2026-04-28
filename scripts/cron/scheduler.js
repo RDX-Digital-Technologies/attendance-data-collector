@@ -11,7 +11,6 @@ const workingDirectory = "C:\\Users\\Administrator\\Desktop\\attendace_data_coll
 
 // Module name you run with -m
 const moduleName = "scripts.attendance_data_collector";
-
 // ====================
 
 // Function to run the module
