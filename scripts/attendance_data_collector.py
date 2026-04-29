@@ -2,7 +2,9 @@ from scripts.attendance_log_collector.pull_attendace_logs import pull_attendance
 from scripts.db_layer.get_data import (
     get_device_info,
     get_existing_employee_records,
-    get_last_fetched_timestamp
+    get_last_fetched_timestamp,
+    get_punch_status_records,
+    get_punch_method_records
 )
 from scripts.db_layer.insert_data import (
     insert_attendance_log_records,
@@ -133,6 +135,15 @@ def collect_attendance_data():
         log.error("Failed to fetch existing device records")
         send_discord_alert(config.DISCORD_WEBHOOK_URL, "Failed to fetch existing device records. Attendance data collection aborted.")
         return {}
+
+    valid_status_rows = get_punch_status_records()
+    valid_method_rows = get_punch_method_records()
+    if valid_status_rows is None or valid_method_rows is None:
+        log.error("Failed to fetch punch_status / punch_method dictionary records")
+        send_discord_alert(config.DISCORD_WEBHOOK_URL, "Failed to fetch punch_status/punch_method dictionary records. Attendance data collection aborted.")
+        return {}
+    valid_status_ids = {row[0] for row in valid_status_rows}
+    valid_method_ids = {row[0] for row in valid_method_rows}
     
     allowed_devices = [i for i in existing_devices if config.APPROVED_DEVICE.strip().lower().replace(' ','') in i[4].strip().lower().replace(' ','')]
     print(allowed_devices)
@@ -176,6 +187,19 @@ def collect_attendance_data():
                 log.error("Device key is none for %s. Skipping.", device_ip)
                 send_discord_alert(config.DISCORD_WEBHOOK_URL, f"Device key is none for {device_ip}. Check logs for details.")
                 continue
+
+            pre_dict_count = len(records)
+            records = [
+                r for r in records
+                if r.get("punch_status_id") in valid_status_ids
+                and r.get("punch_method_id") in valid_method_ids
+            ]
+            dropped_invalid = pre_dict_count - len(records)
+            if dropped_invalid:
+                log.warning(
+                    "Dropped %d record(s) from %s with unknown punch_status_id or punch_method_id (likely device clock/data corruption).",
+                    dropped_invalid, device_ip
+                )
 
             original_count = len(records)
             records = [

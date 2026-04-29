@@ -84,7 +84,7 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
         log.info("Device re-enabled. Fetched %d raw records.", len(attendance))
 
         # Format attendance records
-        pulled_at = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Kolkata")).isoformat()
+        pulled_at = datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None).isoformat()
         formatted_records = []
         
         # Parse last_pulled_timestamp to datetime (if provided)
@@ -118,7 +118,7 @@ def pull_attendance_logs(device_ip, device_port, timeout, comm_key, force_udp, l
         for rec in attendance:
             event_ts = rec.timestamp
             # Only include records on or after the configured floor (start_date / last_pulled_timestamp)
-            if last_dt is None or (event_ts and event_ts >= last_dt):
+            if last_dt is None or (event_ts and event_ts > last_dt):
                 formatted_records.append({
                     "employee_id": str(rec.user_id),
                     "employee_name": user_map.get(str(rec.user_id)),
