@@ -1,43 +1,81 @@
 const cron = require("node-cron");
 const { spawn } = require("child_process");
 
-// ==== EDIT THIS ====
+// ==== CONFIG ====
 
-// Path to your virtual environment python.exe
-const pythonPath = "C:\\Users\\Administrator\\Desktop\\attendace_data_collector\\attendance-data-collector\\venv\\Scripts\\python.exe";
+// Use pythonw.exe to avoid popup window
+const pythonPath = "C:\\Users\\Administrator\\Desktop\\attendace_data_collector\\attendance-data-collector\\venv\\Scripts\\pythonw.exe";
 
-// Working directory of your project (IMPORTANT for -m to work)
+// Working directory
 const workingDirectory = "C:\\Users\\Administrator\\Desktop\\attendace_data_collector\\attendance-data-collector";
 
-// Module name you run with -m
+// Module name
 const moduleName = "scripts.attendance_data_collector";
-// ====================
 
-// Function to run the module
+// Max time a single run is allowed (ms). Should be less than the cron interval.
+const RUN_TIMEOUT_MS = 9 * 60 * 1000; // 9 minutes
+
+// =================
+
+// Prevent overlapping runs
+let isRunning = false;
+
 function runPythonModule() {
-    console.log("Running attendance collector:", new Date());
+    if (isRunning) {
+        console.log("⏳ Previous job still running, skipping this tick...");
+        return;
+    }
 
-    const process = spawn(
+    isRunning = true;
+    console.log("🚀 Running attendance collector:", new Date().toISOString());
+
+    const child = spawn(
         pythonPath,
-        ["-m", moduleName],
+        ["-u", "-m", moduleName], // -u = unbuffered output (logs stream live)
         {
-            cwd: workingDirectory,   // critical for module execution
-            stdio: "inherit"
+            cwd: workingDirectory,
+            windowsHide: true,                // hide any window
+            stdio: ["ignore", "pipe", "pipe"], // capture output for PM2 logs
+            env: { ...process.env, PYTHONUNBUFFERED: "1" }
         }
     );
 
-    process.on("error", (err) => {
-        console.error("Failed to start process:", err);
+    // Safety timeout — kill if it hangs
+    const killTimer = setTimeout(() => {
+        console.error("⏰ Run exceeded timeout, killing process...");
+        child.kill("SIGTERM");
+        // Force kill if it doesn't exit in 10s
+        setTimeout(() => {
+            if (!child.killed) child.kill("SIGKILL");
+        }, 10_000);
+    }, RUN_TIMEOUT_MS);
+
+    child.stdout.on("data", (data) => {
+        process.stdout.write(`[PY] ${data}`);
     });
 
-    process.on("close", (code) => {
-        console.log(`Process exited with code ${code}`);
+    child.stderr.on("data", (data) => {
+        process.stderr.write(`[PY ERR] ${data}`);
+    });
+
+    child.on("error", (err) => {
+        clearTimeout(killTimer);
+        console.error("❌ Failed to start process:", err);
+        isRunning = false;
+    });
+
+    child.on("close", (code, signal) => {
+        clearTimeout(killTimer);
+        if (signal) {
+            console.log(`✅ Process terminated by signal ${signal}`);
+        } else {
+            console.log(`✅ Process exited with code ${code}`);
+        }
+        isRunning = false;
     });
 }
 
-// Run every 10 minutes
-cron.schedule("*/10 * * * *", () => {
-    runPythonModule();
-});
+// Run every 10 minutes (at :00, :10, :20, ...)
+cron.schedule("*/10 * * * *", runPythonModule);
 
-console.log("PM2 Python scheduler started...");
+console.log("🟢 PM2 Python scheduler started. Next run at the next :00/:10/:20/:30/:40/:50 mark.");
